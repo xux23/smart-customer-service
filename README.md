@@ -24,6 +24,58 @@
 - 知识检索：jieba 分词 + TF-IDF 余弦相似度（零外部依赖）
 - 存储：SQLite（标准库 sqlite3，单文件零部署）
 
+## 快速开始
+
+```bash
+# 1. 安装依赖（需已安装 uv）
+uv sync
+
+# 2. 配置环境变量：cp .env.example .env，按需填入 LLM_API_KEY；
+#    不配 key 也能跑——服务自动降级为 mock 模式，全程离线可用
+
+# 3. 启动服务
+uv run uvicorn app.main:app --port 8000
+
+# 4. 另开一个终端进入命令行演示
+uv run python scripts/chat_cli.py
+
+# 5. 跑测试（不依赖网络）
+uv run pytest
+```
+
+四条演示话术及预期路由：
+
+| 输入 | 预期路径 |
+|---|---|
+| 怎么申请退货？ | 知识库直接回答（kb_answer） |
+| 买的东西用了两天就坏了，能修吗？要钱吗？ | 相似问题列表 → 选序号 / 回 0 建单 |
+| 快递员把我的包裹扔坏了，我要投诉！ | 投诉直通建单 → 客服质控组 |
+| 你们这什么破系统啊 | 低置信度转人工（human） |
+
+接口文档由 FastAPI 自动生成，启动后访问 <http://127.0.0.1:8000/docs>。
+
+## 目录结构
+
+```
+├── docs/                          # 需求、设计、开发、演示四份文档
+├── app/
+│   ├── main.py                    # FastAPI 路由，启动时建表、加载知识库
+│   ├── config.py                  # .env 配置集中管理
+│   ├── agents/
+│   │   ├── intent_agent.py        # 意图识别：Prompt 约束 + 四级兜底链
+│   │   ├── retrieval_agent.py     # 知识检索：三级阈值路由
+│   │   └── ticket_agent.py        # 工单：建单、部门路由、状态机
+│   ├── core/
+│   │   ├── llm.py                 # OpenAI 兼容客户端 + Mock + 工厂
+│   │   ├── kb.py                  # jieba 分词 + TF-IDF 余弦相似度
+│   │   ├── keywords.py            # 意图关键词词典（Mock 与兜底链共用）
+│   │   ├── store.py               # SQLite：工单 CRUD、事件流水、工单号
+│   │   └── pipeline.py            # 编排三个 Agent，会话候选暂存
+│   └── data/knowledge.json        # 知识库数据
+├── scripts/chat_cli.py            # 命令行演示客户端
+└── tests/                         # pytest 单测与接口测试（离线可跑）
+```
+
 ## 文档索引
 
 | 文档 | 内容 |
@@ -35,4 +87,4 @@
 
 ## 当前状态
 
-文档阶段已完成，代码按 03-开发文档的里程碑推进。
+开发完成：M1~M3 全部里程碑交付，验收标准 1~6 已逐项跑通（含 Mock 模式），`uv run pytest` 35 个测试全部通过。
